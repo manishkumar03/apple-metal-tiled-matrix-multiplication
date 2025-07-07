@@ -9,6 +9,11 @@
 import UIKit
 import Metal
 
+// This struct will also exist on the Metal side.
+struct Params {
+    var N: UInt32
+}
+
 class MatrixBenchmarkRunner {
     let N: Int
 
@@ -22,25 +27,14 @@ class MatrixBenchmarkRunner {
     var C_cpu: [Float] = []
 
     var cpuTime: Double = 0
-
-    var device: MTLDevice!
-    var queue: MTLCommandQueue!
     var helper: MetalKernelHelper!
-    
+
     init(size: Int) {
         self.N = size
+        self.helper = MetalKernelHelper()
     }
 
     var cpuTimeMS: Double { cpuTime * 1000.0 }
-
-    func prepareMetal() -> Bool {
-        guard let device = MTLCreateSystemDefaultDevice(),
-              let queue = device.makeCommandQueue() else { return false }
-        self.device = device
-        self.queue = queue
-        self.helper = MetalKernelHelper(device: device)
-        return true
-    }
 
     func generateRandomMatrices() {
         A = (0..<N*N).map { _ in Float.random(in: -1...1) }
@@ -65,17 +59,17 @@ class MatrixBenchmarkRunner {
     }
 
     func runKernelBenchmark(name kernelName: String) -> BenchmarkResult? {
-        guard let pipeline = helper.makeFunction(kernelName) else { return nil }
+        guard let pipeline = helper.makePipelineFromFunction(kernelName) else { return nil }
 
         let bufferA = helper.makeBuffer(from: A)
         let bufferB = helper.makeBuffer(from: B)
         let bufferC = helper.makeBuffer(length: N * N * MemoryLayout<Float>.size)
-        let constants = [UInt32(N)]
+        let constants = helper.makeConstant(from: Params(N: UInt32(N)))
 
         let start = CACurrentMediaTime()
         helper.dispatchThreadgroups(pipeline: pipeline,
                                     buffers: [bufferA, bufferB, bufferC],
-                                    constants: constants,
+                                    constants: [constants],
                                     matrixWidth: N, matrixHeight: N)
         let duration = CACurrentMediaTime() - start
 

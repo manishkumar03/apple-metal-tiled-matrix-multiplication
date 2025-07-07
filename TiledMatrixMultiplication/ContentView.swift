@@ -49,21 +49,15 @@ struct ContentView: View {
 
         var log: String = ""
         let runner = MatrixBenchmarkRunner(size: N)
-
-        guard runner.prepareMetal() else {
-            output = "❌ Failed to initialize Metal"
-            return
-        }
-
         runner.generateRandomMatrices()
         runner.multiplyOnCPU()
+
         log += String(format: "✅ CPU time: %.2f ms\n", runner.cpuTimeMS)
 
         let kernelNames = ["matmul_naive", "matmul_tiled"]
         for kernelName in kernelNames {
             if let result = runner.runKernelBenchmark(name: kernelName) {
                 log += String(format: "✅ %@: %.2f ms ", result.name, result.duration)
-             //   log += String(format: "(speedup: %.2fx, maxDiff: %.6f)\n", result.speedup, result.maxDiff)
                 log += String(format: "(speedup: %.2fx)\n", result.speedup)
                 print("Max diff: \(result.maxDiff) for \(kernelName)")
                 if result.maxDiff > 1e-2 {
@@ -71,7 +65,7 @@ struct ContentView: View {
                     fatalError(String(format: "Max diff: %.6f", result.maxDiff))
                 }
             } else {
-                log += "❌ \(kernelName) failed to run\n"
+                log += "\(kernelName) failed to run\n"
             }
         }
 
