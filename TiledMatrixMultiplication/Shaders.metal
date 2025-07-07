@@ -81,5 +81,3 @@ kernel void matmul_tiled(device const float* A [[ buffer(0) ]],
         C[outputRow * N + outputCol] = sum;
     }
 }
-
-

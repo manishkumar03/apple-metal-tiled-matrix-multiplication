@@ -81,4 +81,29 @@ class MatrixBenchmarkRunner {
 
         return BenchmarkResult(name: kernelName, duration: duration * 1000.0, maxDiff: maxDiff, speedup: speedup)
     }
+
+    func runAllKernels() async -> String {
+        var log: String = ""
+        self.generateRandomMatrices()
+        self.multiplyOnCPU()
+
+        log += String(format: "✅ CPU time: %.2f ms\n", self.cpuTimeMS)
+
+        let kernelNames = ["matmul_naive", "matmul_tiled"]
+        for kernelName in kernelNames {
+            if let result = self.runKernelBenchmark(name: kernelName) {
+                log += String(format: "✅ %@: %.2f ms ", result.name, result.duration)
+                log += String(format: "(speedup: %.2fx)\n", result.speedup)
+                print("Max diff: \(result.maxDiff) for \(kernelName)")
+                if result.maxDiff > 1e-2 {
+                    print("Results are not matching for \(kernelName)")
+                    fatalError(String(format: "Max diff: %.6f", result.maxDiff))
+                }
+            } else {
+                log += "\(kernelName) failed to run\n"
+            }
+        }
+
+      return log
+    }
 }

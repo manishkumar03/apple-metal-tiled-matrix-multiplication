@@ -47,28 +47,7 @@ struct ContentView: View {
         isProcessing = true
         defer { isProcessing = false }
 
-        var log: String = ""
         let runner = MatrixBenchmarkRunner(size: N)
-        runner.generateRandomMatrices()
-        runner.multiplyOnCPU()
-
-        log += String(format: "✅ CPU time: %.2f ms\n", runner.cpuTimeMS)
-
-        let kernelNames = ["matmul_naive", "matmul_tiled"]
-        for kernelName in kernelNames {
-            if let result = runner.runKernelBenchmark(name: kernelName) {
-                log += String(format: "✅ %@: %.2f ms ", result.name, result.duration)
-                log += String(format: "(speedup: %.2fx)\n", result.speedup)
-                print("Max diff: \(result.maxDiff) for \(kernelName)")
-                if result.maxDiff > 1e-2 {
-                    print("Results are not matching for \(kernelName)")
-                    fatalError(String(format: "Max diff: %.6f", result.maxDiff))
-                }
-            } else {
-                log += "\(kernelName) failed to run\n"
-            }
-        }
-
-        output = log
+        output = await runner.runAllKernels()
     }
 }
