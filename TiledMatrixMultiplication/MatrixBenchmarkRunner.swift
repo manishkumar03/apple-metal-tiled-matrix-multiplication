@@ -72,10 +72,6 @@ class MatrixBenchmarkRunner {
         let bufferC = helper.makeBuffer(length: M * N * MemoryLayout<Float>.size)
         let constants = helper.makeConstant(from: Params(M: UInt32(M), K: UInt32(K), N: UInt32(N)))
 
-//        let bufferM = helper.makeConstant(from: M)
-//        let bufferK = helper.makeConstant(from: K)
-//        let bufferN = helper.makeConstant(from: N)
-
         let start = CACurrentMediaTime()
         helper.dispatchThreadgroups(pipeline: pipeline,
                                     buffers: [bufferA, bufferB, bufferC],
@@ -99,7 +95,7 @@ class MatrixBenchmarkRunner {
 
         log += String(format: "✅ CPU time: %.2f ms\n", self.cpuTimeMS)
 
-        let kernelNames = ["matmul_naive", "matmul_tiled", "matmul_tiled_uneven"]
+        let kernelNames = ["matmul_naive",  "matmul_tiled"]
         for kernelName in kernelNames {
             if let result = self.runKernelBenchmark(name: kernelName) {
                 log += String(format: "✅ %@: %.2f ms ", result.name, result.duration)

@@ -24,28 +24,30 @@ kernel void matmul_naive(device const float* A [[ buffer(0) ]],
                          uint2 threadIdx [[ thread_position_in_threadgroup ]],
                          uint2 blockIdx [[ threadgroup_position_in_grid ]],
                          uint2 globalIdx [[ thread_position_in_grid ]]) {
+    const int M = params.M;
+    const int K = params.K;
     const int N = params.N;
     int outputRow = int(globalIdx.y); // Row of C being computed by this thread
     int outputCol = int(globalIdx.x); // Col of C being computed by this thread
 
-    if (outputRow >= N || outputCol >= N) return;
+    if (outputRow >= M || outputCol >= N) return;
 
     float sum = 0.0f;
-    for (int k = 0; k < N; ++k) {
-        sum += A[outputRow * N + k] * B[k * N + outputCol];
+    for (int k = 0; k < K; ++k) {
+        sum += A[outputRow * K + k] * B[k * N + outputCol];
     }
 
     C[outputRow * N + outputCol] = sum;
 }
 
 // Tiled Shared Memory
-kernel void matmul_tiled(device const float* A [[ buffer(0) ]],
-                         device const float* B [[ buffer(1) ]],
-                         device float* C [[ buffer(2) ]],
-                         constant Params& params [[ buffer(3) ]],
-                         uint2 threadIdx [[ thread_position_in_threadgroup ]],
-                         uint2 blockIdx [[ threadgroup_position_in_grid ]],
-                         uint2 globalIdx [[ thread_position_in_grid ]]) {
+kernel void matmul_tiled_square(device const float* A [[ buffer(0) ]],
+                                device const float* B [[ buffer(1) ]],
+                                device float* C [[ buffer(2) ]],
+                                constant Params& params [[ buffer(3) ]],
+                                uint2 threadIdx [[ thread_position_in_threadgroup ]],
+                                uint2 blockIdx [[ threadgroup_position_in_grid ]],
+                                uint2 globalIdx [[ thread_position_in_grid ]]) {
     const int N = params.N;
     threadgroup float Asub[TILE_SIZE][TILE_SIZE];
     threadgroup float Bsub[TILE_SIZE][TILE_SIZE];
@@ -85,13 +87,13 @@ kernel void matmul_tiled(device const float* A [[ buffer(0) ]],
 }
 
 // Tiled Shared Memory
-kernel void matmul_tiled_uneven(device const float* A [[ buffer(0) ]],
-                                device const float* B [[ buffer(1) ]],
-                                device float* C [[ buffer(2) ]],
-                                constant Params& params [[ buffer(3) ]],
-                                uint2 threadIdx [[ thread_position_in_threadgroup ]],
-                                uint2 blockIdx [[ threadgroup_position_in_grid ]],
-                                uint2 globalIdx [[ thread_position_in_grid ]]) {
+kernel void matmul_tiled(device const float* A [[ buffer(0) ]],
+                         device const float* B [[ buffer(1) ]],
+                         device float* C [[ buffer(2) ]],
+                         constant Params& params [[ buffer(3) ]],
+                         uint2 threadIdx [[ thread_position_in_threadgroup ]],
+                         uint2 blockIdx [[ threadgroup_position_in_grid ]],
+                         uint2 globalIdx [[ thread_position_in_grid ]]) {
     const int M = params.M;
     const int K = params.K;
     const int N = params.N;
