@@ -19,6 +19,8 @@ struct ContentView: View {
     @State private var output = ""
     @State private var isProcessing = false
 
+    let M = 128
+    let K = 128
     let N = 128
 
     var body: some View {
@@ -47,7 +49,7 @@ struct ContentView: View {
         isProcessing = true
         defer { isProcessing = false }
 
-        let runner = MatrixBenchmarkRunner(size: N)
+        let runner = MatrixBenchmarkRunner(M: M, K: K, N: N)
         output = await runner.runAllKernels()
     }
 }

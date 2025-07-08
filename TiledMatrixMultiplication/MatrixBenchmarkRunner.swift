@@ -11,11 +11,15 @@ import Metal
 
 // This struct will also exist on the Metal side.
 struct Params {
+    var M: UInt32
+    var K: UInt32
     var N: UInt32
 }
 
 class MatrixBenchmarkRunner {
+    let M: Int
     let N: Int
+    let K: Int
 
     // Declaring matrices to be flat (1D) instead of [[Float]] is a deliberate choice as it provides two main benefits:
     //  - Metal expects flat float* buffers
@@ -29,30 +33,32 @@ class MatrixBenchmarkRunner {
     var cpuTime: Double = 0
     var helper: MetalKernelHelper!
 
-    init(size: Int) {
-        self.N = size
+    init(M: Int, K: Int, N: Int) {
+        self.M = M
+        self.K = K
+        self.N = N
         self.helper = MetalKernelHelper()
     }
 
     var cpuTimeMS: Double { cpuTime * 1000.0 }
 
     func generateRandomMatrices() {
-        A = (0..<N*N).map { _ in Float.random(in: -1...1) }
-        B = (0..<N*N).map { _ in Float.random(in: -1...1) }
+        A = (0..<M*K).map { _ in Float.random(in: -1...1) }
+        B = (0..<K*N).map { _ in Float.random(in: -1...1) }
     }
 
     // The results from CPU multiplication will serve as the benchmark and will also be used for checking the accuracy
     // of multiplication through Metal kernels.
     func multiplyOnCPU() {
-        C_cpu = [Float](repeating: 0, count: N * N)
+        C_cpu = [Float](repeating: 0, count: M * N)
         let start = CACurrentMediaTime()
-        for i in 0..<N {
-            for j in 0..<N {
+        for m in 0..<M {
+            for n in 0..<N {
                 var sum: Float = 0
-                for k in 0..<N {
-                    sum += A[i * N + k] * B[k * N + j]
+                for k in 0..<K {
+                    sum += A[m * K + k] * B[k * N + n]
                 }
-                C_cpu[i * N + j] = sum
+                C_cpu[m * N + n] = sum
             }
         }
         cpuTime = CACurrentMediaTime() - start
@@ -63,14 +69,18 @@ class MatrixBenchmarkRunner {
 
         let bufferA = helper.makeBuffer(from: A)
         let bufferB = helper.makeBuffer(from: B)
-        let bufferC = helper.makeBuffer(length: N * N * MemoryLayout<Float>.size)
-        let constants = helper.makeConstant(from: Params(N: UInt32(N)))
+        let bufferC = helper.makeBuffer(length: M * N * MemoryLayout<Float>.size)
+        let constants = helper.makeConstant(from: Params(M: UInt32(M), K: UInt32(K), N: UInt32(N)))
+
+//        let bufferM = helper.makeConstant(from: M)
+//        let bufferK = helper.makeConstant(from: K)
+//        let bufferN = helper.makeConstant(from: N)
 
         let start = CACurrentMediaTime()
         helper.dispatchThreadgroups(pipeline: pipeline,
                                     buffers: [bufferA, bufferB, bufferC],
                                     constants: [constants],
-                                    matrixWidth: N, matrixHeight: N)
+                                    M: M, K: K, N: N)
         let duration = CACurrentMediaTime() - start
 
         var C_gpu = [Float](repeating: 0, count: N * N)
@@ -89,7 +99,7 @@ class MatrixBenchmarkRunner {
 
         log += String(format: "✅ CPU time: %.2f ms\n", self.cpuTimeMS)
 
-        let kernelNames = ["matmul_naive", "matmul_tiled"]
+        let kernelNames = ["matmul_naive", "matmul_tiled", "matmul_tiled_uneven"]
         for kernelName in kernelNames {
             if let result = self.runKernelBenchmark(name: kernelName) {
                 log += String(format: "✅ %@: %.2f ms ", result.name, result.duration)

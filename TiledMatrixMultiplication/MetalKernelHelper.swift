@@ -79,8 +79,7 @@ class MetalKernelHelper {
     func dispatchThreadgroups(pipeline: MTLComputePipelineState,
                               buffers: [MTLBuffer],
                               constants: [MTLBuffer],
-                              matrixWidth: Int,
-                              matrixHeight: Int) {
+                              M: Int, K: Int, N: Int) {
         guard let commandBuffer = commandQueue.makeCommandBuffer(),
               let encoder = commandBuffer.makeComputeCommandEncoder() else {
             fatalError( "Could not create command buffer or encoder" )
@@ -95,10 +94,13 @@ class MetalKernelHelper {
             encoder.setBuffer(constant, offset: 0, index: buffers.count + j)
         }
 
-        let numberOfThreadgroups = (matrixWidth + TILE_SIZE - 1) / TILE_SIZE
         let threadgroupSize = MTLSize(width: TILE_SIZE, height: TILE_SIZE, depth: 1)
-        let threadgroups = MTLSize(width: numberOfThreadgroups, height: numberOfThreadgroups, depth: 1)
-        encoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadgroupSize)
+        let threadgroupsPerGrid = MTLSize(
+            width: (N + TILE_SIZE - 1) / TILE_SIZE,
+            height: (M + TILE_SIZE - 1) / TILE_SIZE,
+            depth: 1
+        )
+        encoder.dispatchThreadgroups(threadgroupsPerGrid, threadsPerThreadgroup: threadgroupSize)
         encoder.endEncoding()
         commandBuffer.commit()
         commandBuffer.waitUntilCompleted()
