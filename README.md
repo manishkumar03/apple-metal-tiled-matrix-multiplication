@@ -71,6 +71,9 @@ Then:
 
 That’s a **32× reduction in global memory reads**, and the key reason tiled matrix multiplication is **orders of magnitude faster** than the naive version.
 
+## Screenshot
+![RocketSim_Screenshot_iPhone_16_Pro_6 3_2025-07-09_00 28 58](https://github.com/user-attachments/assets/930ce577-724a-420c-81dc-a518e3f667be)
+
 ## Core Functionality
 
 The project implements three matrix multiplication techniques and compares their performance:
