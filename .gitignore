@@ -1,0 +1,205 @@
+############################################################
+# Xcode / macOS / iOS Development .gitignore (Comprehensive)
+############################################################
+
+############
+# Xcode
+############
+# Build artifacts
+build/
+DerivedData/
+*.xcworkspace
+*.xcuserstate
+*.xccheckout
+*.moved-aside
+*.xcscmblueprint
+*.xcsettings
+*.xcodeproj/project.xcworkspace/
+*.xcodeproj/xcuserdata/
+
+# Scheme management
+*.xcodeproj/xcshareddata/xcschemes/*
+!*.xcodeproj/xcshareddata/xcschemes/*.xcscheme
+
+# Intermediate build results
+*.xcodeproj/xcuserdata/
+
+############
+# Swift Package Manager (SPM)
+############
+.build/
+Packages/
+.swiftpm/
+.swiftpm/xcode/package.xcworkspace/
+.idea/
+
+############
+# CocoaPods
+############
+Pods/
+Podfile.lock
+project.xcworkspace
+
+############
+# Carthage
+############
+Carthage/
+Carthage/Build/
+
+############
+# Fastlane
+############
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/
+fastlane/test_output/
+fastlane/.env
+fastlane/.env.* 
+fastlane/README.md # optional
+
+############
+# Swift Playgrounds
+############
+timeline.xctimeline
+playground.xcworkspace
+
+############
+# Archives & Debug Symbols
+############
+*.xcarchive
+*.dSYM
+*.dSYM.zip
+
+############
+# Crashlytics / Firebase
+############
+crashlytics-build.properties
+GoogleService-Info.plist
+
+############
+# Realm
+############
+*.realm
+*.realm.lock
+*.realm.management
+
+############
+# Xcode Test Results
+############
+*.xcresult
+
+############
+# App Data & Distribution
+############
+*.ipa
+*.app
+*.mobileprovision
+*.hmap
+
+############
+# Logs and Temp
+############
+*.log
+*.tmp
+*.temp
+*.orig
+*.swp
+
+############
+# macOS / Finder / Spotlight
+############
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
+
+# macOS metadata
+.Spotlight-V100
+.Trashes
+VolumeIcon.icns
+com.apple.timemachine.donotpresent
+.TemporaryItems
+.apdisk
+
+############
+# User and IDE settings
+############
+*.user
+*.userprefs
+*.sublime-project
+*.sublime-workspace
+*.code-workspace
+
+############
+# VSCode
+############
+.vscode/
+*.code-workspace
+
+############
+# Tuist
+############
+Tuist/Dependencies/
+Tuist/Generated/
+Tuist/Config.swift
+Project.swift
+Workspace.swift
+
+############
+# Bazel (if used)
+############
+bazel-bin/
+bazel-out/
+bazel-testlogs/
+bazel-workspace/
+.bazelrc.user
+.bazelversion
+
+############
+# Unity (if part of project)
+############
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+Assets/AssetStoreTools*
+UserSettings/
+
+############
+# React Native (if embedded)
+############
+node_modules/
+npm-debug.log
+yarn-error.log
+ios/Pods/
+ios/Podfile.lock
+
+############
+# Flutter (if used)
+############
+.flutter-plugins
+.flutter-plugins-dependencies
+.dart_tool/
+.packages
+.pub-cache/
+build/
+
+############
+# Simulator & Runtime State (if generated)
+############
+*.simstate
+
+############
+# GitHub Codespaces
+############
+.devcontainer/
+codespace-settings.json
+
+############
+# Custom Caches
+############
+.cache/
+.cocoapods/
+tmp/
