@@ -122,33 +122,18 @@ class MatrixBenchmarkRunner {
         self.generateRandomMatrices()
         self.multiplyOnCPU()
 
-        let header = [
-            "Kernel".padding(toLength: 20, withPad: " ", startingAt: 0),
-            "Time (ms)".padding(toLength: 10, withPad: " ", startingAt: 0),
-            "Speedup".padding(toLength: 10, withPad: " ", startingAt: 0)
-        ].joined()
-
+        let header = self.formatResultHeader()
         log += header + "\n"
-        log += String(repeating: "-", count: 40) + "\n"
+        log += String(repeating: "-", count: 37) + "\n"
 
         let cpuResult = BenchmarkResult(name: "CPU", duration: self.cpuTimeMS, maxDiff: 0, speedup: 1)
-        let line = [
-            cpuResult.name.padding(toLength: 20, withPad: " ", startingAt: 0),
-            String(format: "%.2f", cpuResult.duration).padding(toLength: 10, withPad: " ", startingAt: 0),
-            String(format: "%.2fx", cpuResult.speedup).padding(toLength: 10, withPad: " ", startingAt: 0)
-        ].joined()
-
+        let line = self.formatResultLine(for: cpuResult)
         log += line + "\n"
 
         let kernelNames = ["matmul_naive",  "matmul_tiled"]
         for kernelName in kernelNames {
             if let result = self.runKernelBenchmark(name: kernelName) {
-                let line = [
-                    result.name.padding(toLength: 20, withPad: " ", startingAt: 0),
-                    String(format: "%.2f", result.duration).padding(toLength: 10, withPad: " ", startingAt: 0),
-                    String(format: "%.2fx", result.speedup).padding(toLength: 10, withPad: " ", startingAt: 0)
-                ].joined()
-
+                let line = self.formatResultLine(for: result)
                 log += line + "\n"
 
                 print("Max diff: \(result.maxDiff) for \(kernelName)")
@@ -162,5 +147,25 @@ class MatrixBenchmarkRunner {
         }
 
         return log
+    }
+
+    private func formatResultHeader() -> String {
+        let header = [
+            "Kernel".padding(toLength: 20, withPad: " ", startingAt: 0),
+            "Time (ms)".padding(toLength: 10, withPad: " ", startingAt: 0),
+            "Speedup".padding(toLength: 10, withPad: " ", startingAt: 0)
+        ].joined()
+
+        return header
+    }
+
+    private func formatResultLine(for result: BenchmarkResult) -> String {
+        let line = [
+            result.name.padding(toLength: 20, withPad: " ", startingAt: 0),
+            String(format: "%.2f", result.duration).padding(toLength: 10, withPad: " ", startingAt: 0),
+            String(format: "%.2fx", result.speedup).padding(toLength: 10, withPad: " ", startingAt: 0)
+        ].joined()
+
+        return line
     }
 }

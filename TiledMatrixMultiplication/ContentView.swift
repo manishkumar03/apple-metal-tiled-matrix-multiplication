@@ -39,12 +39,10 @@ struct ContentView: View {
 
             Text("Results for \(M)x\(K) X \(K)x\(N) Matrix")
                 .font(.system(.subheadline, design: .monospaced))
-                .padding(.horizontal)
                 .foregroundColor(.secondary)
 
             ScrollView {
                 Text(output)
-                    .padding(.horizontal)
                     .font(.system(.caption, design: .monospaced))
             }
         }
