@@ -37,7 +37,7 @@ struct ContentView: View {
             .disabled(isProcessing)
             .padding()
 
-            Text("Results for \(M)x\(K) x \(K)x\(N) Matrix")
+            Text("Results for \(M)x\(K) X \(K)x\(N) Matrix")
                 .font(.system(.subheadline, design: .monospaced))
                 .padding(.horizontal)
                 .foregroundColor(.secondary)
