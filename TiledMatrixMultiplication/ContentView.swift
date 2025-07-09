@@ -8,17 +8,22 @@
 import SwiftUI
 import Metal
 
-struct BenchmarkResult {
-    let name: String
-    let duration: Double
-    let maxDiff: Float
-    let speedup: Double
-}
+/**
+ * SwiftUI View for Matrix Multiplication Benchmark Interface
+ *
+ * This view provides a user interface for running and comparing different matrix
+ * multiplication kernel implementations on Apple Silicon GPUs.
 
+ * Expected Output Format:
+ * The results typically show metrics like:
+ * - Execution time per kernel
+ * - Relative speedup compared to baseline CPU implementation
+ */
 struct ContentView: View {
     @State private var output = ""
     @State private var isProcessing = false
 
+    // Matrix dimensions: C[M×N] = A[M×K] × B[K×N]
     let M = 512
     let K = 256
     let N = 128
@@ -32,8 +37,8 @@ struct ContentView: View {
             .disabled(isProcessing)
             .padding()
 
-            Text("Results for \(N) x \(N) Matrix:")
-                .font(.system(.headline, design: .monospaced))
+            Text("Results for \(M)x\(K) x \(K)x\(N) Matrix")
+                .font(.system(.subheadline, design: .monospaced))
                 .padding(.horizontal)
                 .foregroundColor(.secondary)
 
@@ -45,6 +50,12 @@ struct ContentView: View {
         }
     }
 
+    /**
+     * Execute Kernel Benchmarks
+     *
+     * This function orchestrates the execution of all matrix multiplication kernel
+     * benchmarks and updates the UI with results.
+     */
     func runAll() async {
         isProcessing = true
         defer { isProcessing = false }

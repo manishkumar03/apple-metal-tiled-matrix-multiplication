@@ -26,6 +26,8 @@ class MetalKernelHelper {
             fatalError( "Could not load default library" )
         }
 
+        // Try to create a `MTLCommandQueue` from a `MTLDevice`. A command queue is a GPU instruction scheduler.
+        // It's how you submit work (compute commands) to the GPU. See the function `dispatchThreadgroups()` for details.
         guard let commandQueue = device.makeCommandQueue() else {
             fatalError( "Could not create command queue" )
         }
@@ -35,6 +37,9 @@ class MetalKernelHelper {
         self.library = library
     }
 
+    /// Compile the `kernelFuction` into a compute pipeline state of type `MTLComputePipelineState` that the
+    /// GPU can execute. Basically, `makeComputePipelineState()` tells Metal to convert this kernel function
+    /// into something which the GPU can execute efficiently.
     func makePipelineFromFunction(_ name: String) -> MTLComputePipelineState? {
         guard let kernelfunction = library.makeFunction(name: name) else {
             fatalError( "Could not find kernel function \(name)" )
@@ -62,8 +67,8 @@ class MetalKernelHelper {
         device.makeBuffer(length: length, options: [])!
     }
 
-    // Creates a Metal buffer containing a single constant value of type `T`.
-    // This is typically used to pass small uniform values to a Metal kernel.
+    /// Creates a Metal buffer containing a single constant value of type `T`.
+    /// This is typically used to pass small uniform values to a Metal kernel.
     func makeConstant<T>(from value: T) -> MTLBuffer {
         var copy = value
         // Use withUnsafeBytes to get a raw pointer to the constant value.
@@ -76,6 +81,13 @@ class MetalKernelHelper {
         }
     }
 
+    /// Dispatches a compute kernel using the precompiled pipeline state, binding the provided buffers and constants,
+    /// and launching GPU threads with specified configuration.
+    ///
+    /// - Parameters:
+    ///   - buffers: Input/output `MTLBuffer`s to be bound to the kernel.
+    ///   - constants: Optional constant `MTLBuffer`s, such as uniform or metadata inputs (default is empty).
+    ///   - M, K, N: Matrix sizes.
     func dispatchThreadgroups(pipeline: MTLComputePipelineState,
                               buffers: [MTLBuffer],
                               constants: [MTLBuffer],
