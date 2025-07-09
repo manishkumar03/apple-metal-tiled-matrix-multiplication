@@ -6,7 +6,7 @@ This repository is an educational example that demonstrates how to use Apple's M
 
 The code includes **extensive inline comments** explaining the functioning of each step and the design choices made.
 
-# Why Naïve Matrix Multiplication Is Inefficient And How Tiling Helps
+# Why Naive Matrix Multiplication Is Inefficient And How Tiling Helps
 
 Matrix multiplication might be the most-studied algorithm in the AI literature. It literally is the foundation of every major process in modern machine learning and especially deep learning. So anytime we can speed it up or make it more efficient, even slightly, we can save a lot in terms of computing power, energy and cost.
 
