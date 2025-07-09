@@ -122,13 +122,35 @@ class MatrixBenchmarkRunner {
         self.generateRandomMatrices()
         self.multiplyOnCPU()
 
-        log += String(format: "✅ CPU time: %.2f ms\n", self.cpuTimeMS)
+        let header = [
+            "Kernel".padding(toLength: 20, withPad: " ", startingAt: 0),
+            "Time (ms)".padding(toLength: 10, withPad: " ", startingAt: 0),
+            "Speedup".padding(toLength: 10, withPad: " ", startingAt: 0)
+        ].joined()
+
+        log += header + "\n"
+        log += String(repeating: "-", count: 40) + "\n"
+
+        let cpuResult = BenchmarkResult(name: "CPU", duration: self.cpuTimeMS, maxDiff: 0, speedup: 1)
+        let line = [
+            cpuResult.name.padding(toLength: 20, withPad: " ", startingAt: 0),
+            String(format: "%.2f", cpuResult.duration).padding(toLength: 10, withPad: " ", startingAt: 0),
+            String(format: "%.2fx", cpuResult.speedup).padding(toLength: 10, withPad: " ", startingAt: 0)
+        ].joined()
+
+        log += line + "\n"
 
         let kernelNames = ["matmul_naive",  "matmul_tiled"]
         for kernelName in kernelNames {
             if let result = self.runKernelBenchmark(name: kernelName) {
-                log += String(format: "✅ %@: %.2f ms ", result.name, result.duration)
-                log += String(format: "(speedup: %.2fx)\n", result.speedup)
+                let line = [
+                    result.name.padding(toLength: 20, withPad: " ", startingAt: 0),
+                    String(format: "%.2f", result.duration).padding(toLength: 10, withPad: " ", startingAt: 0),
+                    String(format: "%.2fx", result.speedup).padding(toLength: 10, withPad: " ", startingAt: 0)
+                ].joined()
+
+                log += line + "\n"
+
                 print("Max diff: \(result.maxDiff) for \(kernelName)")
                 if result.maxDiff > 1e-2 {
                     print("Results are not matching for \(kernelName)")
@@ -138,7 +160,7 @@ class MatrixBenchmarkRunner {
                 log += "\(kernelName) failed to run\n"
             }
         }
-        
+
         return log
     }
 }
