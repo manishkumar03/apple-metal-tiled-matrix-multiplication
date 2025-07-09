@@ -139,7 +139,7 @@ class MatrixBenchmarkRunner {
                 log += "\(kernelName) failed to run\n"
             }
         }
-
-      return log
+        
+        return log
     }
 }
