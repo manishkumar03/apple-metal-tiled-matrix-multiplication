@@ -50,6 +50,6 @@ struct ContentView: View {
         defer { isProcessing = false }
 
         let runner = MatrixBenchmarkRunner(M: M, K: K, N: N)
-        output = await runner.runAllKernels()
+        self.output = await runner.runAllKernels()
     }
 }

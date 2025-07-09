@@ -95,11 +95,9 @@ class MetalKernelHelper {
         }
 
         let threadgroupSize = MTLSize(width: TILE_SIZE, height: TILE_SIZE, depth: 1)
-        let threadgroupsPerGrid = MTLSize(
-            width: (N + TILE_SIZE - 1) / TILE_SIZE,
-            height: (M + TILE_SIZE - 1) / TILE_SIZE,
-            depth: 1
-        )
+        let threadgroupsPerGrid = MTLSize(width: (N + TILE_SIZE - 1) / TILE_SIZE,
+                                          height: (M + TILE_SIZE - 1) / TILE_SIZE,
+                                          depth: 1)
         encoder.dispatchThreadgroups(threadgroupsPerGrid, threadsPerThreadgroup: threadgroupSize)
         encoder.endEncoding()
         commandBuffer.commit()
