@@ -24,8 +24,8 @@ struct ContentView: View {
     @State private var isProcessing = false
 
     // Matrix dimensions: C[M×N] = A[M×K] × B[K×N]
-    let M = 512
-    let K = 256
+    let M = 128
+    let K = 128
     let N = 128
 
     var body: some View {

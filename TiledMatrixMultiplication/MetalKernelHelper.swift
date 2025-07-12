@@ -12,6 +12,7 @@ class MetalKernelHelper {
     let commandQueue: MTLCommandQueue
     let library: MTLLibrary
     let TILE_SIZE: Int = 16
+    var WORK_PER_THREAD = 1 // How many output tiles will one thread produce
 
     init() {
         // Get a handle to the GPU. There is only one GPU on iPhones and Apple Silicon Macs but
@@ -88,10 +89,14 @@ class MetalKernelHelper {
     ///   - buffers: Input/output `MTLBuffer`s to be bound to the kernel.
     ///   - constants: Optional constant `MTLBuffer`s, such as uniform or metadata inputs (default is empty).
     ///   - M, K, N: Matrix sizes.
-    func dispatchThreadgroups(pipeline: MTLComputePipelineState,
+    func dispatchThreadgroups(kernelName: String,
                               buffers: [MTLBuffer],
                               constants: [MTLBuffer],
                               M: Int, K: Int, N: Int) {
+        guard let pipeline = self.makePipelineFromFunction(kernelName) else {
+            fatalError( "Could not create compute pipeline state" )
+        }
+
         guard let commandBuffer = commandQueue.makeCommandBuffer(),
               let encoder = commandBuffer.makeComputeCommandEncoder() else {
             fatalError( "Could not create command buffer or encoder" )
@@ -106,7 +111,13 @@ class MetalKernelHelper {
             encoder.setBuffer(constant, offset: 0, index: buffers.count + j)
         }
 
-        let threadgroupSize = MTLSize(width: TILE_SIZE, height: TILE_SIZE, depth: 1)
+        if kernelName == "matmul_tiled_overloaded" {
+            WORK_PER_THREAD = 2
+        } else {
+            WORK_PER_THREAD = 1
+        }
+        
+        let threadgroupSize = MTLSize(width: TILE_SIZE / WORK_PER_THREAD, height: TILE_SIZE / WORK_PER_THREAD, depth: 1)
         let threadgroupsPerGrid = MTLSize(width: (N + TILE_SIZE - 1) / TILE_SIZE,
                                           height: (M + TILE_SIZE - 1) / TILE_SIZE,
                                           depth: 1)
