@@ -91,7 +91,7 @@ class MatrixBenchmarkRunner {
     ///   - `speedup`: ratio of CPU time to GPU time.
     func runKernelBenchmark(name kernelName: String) -> BenchmarkResult? {
         var WORK_PER_THREAD: Int
-        if kernelName == "matmul_tiled_overloaded" {
+        if kernelName == "matmul_tiled_wpt" {
             WORK_PER_THREAD = 2 // make sure to have the same value in the kernel
         } else {
             WORK_PER_THREAD = 1
@@ -129,13 +129,13 @@ class MatrixBenchmarkRunner {
 
         let header = self.formatResultHeader()
         log += header + "\n"
-        log += String(repeating: "-", count: 37) + "\n"
+        log += String(repeating: "-", count: 42) + "\n"
 
         let cpuResult = BenchmarkResult(name: "CPU", duration: self.cpuTimeMS, maxDiff: 0, speedup: 1)
         let line = self.formatResultLine(for: cpuResult)
         log += line + "\n"
 
-        let kernelNames = ["matmul_naive",  "matmul_tiled", "matmul_tiled_overloaded"]
+        let kernelNames = ["matmul_naive",  "matmul_tiled", "matmul_tiled_wpt"]
         for kernelName in kernelNames {
             if let result = self.runKernelBenchmark(name: kernelName) {
                 let line = self.formatResultLine(for: result)
@@ -156,7 +156,7 @@ class MatrixBenchmarkRunner {
 
     private func formatResultHeader() -> String {
         let header = [
-            "Kernel".padding(toLength: 20, withPad: " ", startingAt: 0),
+            "Kernel".padding(toLength: 25, withPad: " ", startingAt: 0),
             "Time (ms)".padding(toLength: 10, withPad: " ", startingAt: 0),
             "Speedup".padding(toLength: 10, withPad: " ", startingAt: 0)
         ].joined()
@@ -166,7 +166,7 @@ class MatrixBenchmarkRunner {
 
     private func formatResultLine(for result: BenchmarkResult) -> String {
         let line = [
-            result.name.padding(toLength: 20, withPad: " ", startingAt: 0),
+            result.name.padding(toLength: 25, withPad: " ", startingAt: 0),
             String(format: "%.2f", result.duration).padding(toLength: 10, withPad: " ", startingAt: 0),
             String(format: "%.2fx", result.speedup).padding(toLength: 10, withPad: " ", startingAt: 0)
         ].joined()

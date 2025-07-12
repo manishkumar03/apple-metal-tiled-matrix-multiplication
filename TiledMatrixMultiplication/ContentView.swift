@@ -24,9 +24,9 @@ struct ContentView: View {
     @State private var isProcessing = false
 
     // Matrix dimensions: C[M×N] = A[M×K] × B[K×N]
-    let M = 128
-    let K = 128
-    let N = 128
+    let M = 512
+    let K = 256
+    let N = 512
 
     var body: some View {
         VStack {
@@ -37,7 +37,7 @@ struct ContentView: View {
             .disabled(isProcessing)
             .padding()
 
-            Text("Results for \(M)x\(K) X \(K)x\(N) Matrix")
+            Text("Results for [\(M)x\(K)] X [\(K)x\(N)]")
                 .font(.system(.subheadline, design: .monospaced))
                 .foregroundColor(.secondary)
 

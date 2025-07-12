@@ -188,7 +188,7 @@ kernel void matmul_tiled(device const float* A [[ buffer(0) ]],
  * Performance Characteristics:
  * - Global memory reads: Reduced by factor of TILE_SIZE (typically 16x reduction)
  */
-kernel void matmul_tiled_overloaded(device const float* A [[ buffer(0) ]],
+kernel void matmul_tiled_wpt(device const float* A [[ buffer(0) ]],
                                     device const float* B [[ buffer(1) ]],
                                     device float* C [[ buffer(2) ]],
                                     constant Params& params [[ buffer(3) ]],
@@ -267,36 +267,35 @@ kernel void matmul_tiled_overloaded(device const float* A [[ buffer(0) ]],
 //
 //        A much more efficient approach is to restructure the loop to minimize redundant loads from threadgroup memory and maximize the work done with data held in private per-thread registers.
 
-
-//        for (int i = 0; i < WORK_PER_THREAD; ++i) {
-//            for (int j = 0; j < WORK_PER_THREAD; ++j) {
-//                for (int k = 0; k < TILE_SIZE; ++k) {
-//                    sum[i][j] += Asub[threadIdx.y * WORK_PER_THREAD + i][k] * Bsub[k][threadIdx.x * WORK_PER_THREAD + j];
-//                }
-//            }
-//        }
-
-        // ===== PHASE 2: (IMPROVED) COMPUTATION =====
-        for (int k = 0; k < TILE_SIZE; ++k) {
-            // Load the 2 values this thread needs from a row of Asub into registers
-            float a_vals[WORK_PER_THREAD];
-            for (int i = 0; i < WORK_PER_THREAD; ++i) {
-                a_vals[i] = Asub[threadIdx.y * WORK_PER_THREAD + i][k];
-            }
-
-            // Load the 2 values this thread needs from a column of Bsub into registers
-            float b_vals[WORK_PER_THREAD];
+        for (int i = 0; i < WORK_PER_THREAD; ++i) {
             for (int j = 0; j < WORK_PER_THREAD; ++j) {
-                b_vals[j] = Bsub[k][threadIdx.x * WORK_PER_THREAD + j];
-            }
-
-            // Perform the 2x2=4 multiply-accumulate operations using registers
-            for (int i = 0; i < WORK_PER_THREAD; ++i) {
-                for (int j = 0; j < WORK_PER_THREAD; ++j) {
-                    sum[i][j] += a_vals[i] * b_vals[j];
+                for (int k = 0; k < TILE_SIZE; ++k) {
+                    sum[i][j] += Asub[threadIdx.y * WORK_PER_THREAD + i][k] * Bsub[k][threadIdx.x * WORK_PER_THREAD + j];
                 }
             }
         }
+
+        // ===== PHASE 2: (IMPROVED) COMPUTATION =====
+//        for (int k = 0; k < TILE_SIZE; ++k) {
+//            // Load the 2 values this thread needs from a row of Asub into registers
+//            float a_vals[WORK_PER_THREAD];
+//            for (int i = 0; i < WORK_PER_THREAD; ++i) {
+//                a_vals[i] = Asub[threadIdx.y * WORK_PER_THREAD + i][k];
+//            }
+//
+//            // Load the 2 values this thread needs from a column of Bsub into registers
+//            float b_vals[WORK_PER_THREAD];
+//            for (int j = 0; j < WORK_PER_THREAD; ++j) {
+//                b_vals[j] = Bsub[k][threadIdx.x * WORK_PER_THREAD + j];
+//            }
+//
+//            // Perform the 2x2=4 multiply-accumulate operations using registers
+//            for (int i = 0; i < WORK_PER_THREAD; ++i) {
+//                for (int j = 0; j < WORK_PER_THREAD; ++j) {
+//                    sum[i][j] += a_vals[i] * b_vals[j];
+//                }
+//            }
+//        }
 
         // SYNCHRONIZATION POINT 2: Wait before moving to next tile
         // This barrier prevents any thread from overwriting shared memory while other threads are still computing
