@@ -265,10 +265,37 @@ kernel void matmul_tiled_overloaded(device const float* A [[ buffer(0) ]],
         //  - walking across one row of the tile of A (fixed threadIdx.y)
         //  - and one column of the tile of B (fixed threadIdx.x)
 
-        for (int i = 0; i < WORK_PER_THREAD; ++i) {
+//        The triple-nested loop (for i, for j, for k) leads to redundant calculations and poor register utilization.
+//
+//        A much more efficient approach is to restructure the loop to minimize redundant loads from threadgroup memory and maximize the work done with data held in private per-thread registers.
+
+
+//        for (int i = 0; i < WORK_PER_THREAD; ++i) {
+//            for (int j = 0; j < WORK_PER_THREAD; ++j) {
+//                for (int k = 0; k < TILE_SIZE; ++k) {
+//                    sum[i][j] += Asub[threadIdx.y * WORK_PER_THREAD + i][k] * Bsub[k][threadIdx.x * WORK_PER_THREAD + j];
+//                }
+//            }
+//        }
+
+        // ===== PHASE 2: (IMPROVED) COMPUTATION =====
+        for (int k = 0; k < TILE_SIZE; ++k) {
+            // Load the 2 values this thread needs from a row of Asub into registers
+            float a_vals[WORK_PER_THREAD];
+            for (int i = 0; i < WORK_PER_THREAD; ++i) {
+                a_vals[i] = Asub[threadIdx.y * WORK_PER_THREAD + i][k];
+            }
+
+            // Load the 2 values this thread needs from a column of Bsub into registers
+            float b_vals[WORK_PER_THREAD];
             for (int j = 0; j < WORK_PER_THREAD; ++j) {
-                for (int k = 0; k < TILE_SIZE; ++k) {
-                    sum[i][j] += Asub[threadIdx.y * WORK_PER_THREAD + i][k] * Bsub[k][threadIdx.x * WORK_PER_THREAD + j];
+                b_vals[j] = Bsub[k][threadIdx.x * WORK_PER_THREAD + j];
+            }
+
+            // Perform the 2x2=4 multiply-accumulate operations using registers
+            for (int i = 0; i < WORK_PER_THREAD; ++i) {
+                for (int j = 0; j < WORK_PER_THREAD; ++j) {
+                    sum[i][j] += a_vals[i] * b_vals[j];
                 }
             }
         }
@@ -284,7 +311,7 @@ kernel void matmul_tiled_overloaded(device const float* A [[ buffer(0) ]],
     // After processing all tiles, write the final result to global memory.
     // Check bounds to make sure this threads maps to a valid element in C. This handles cases where matrix dimensions
     // aren't an exact multiples of TILE_SIZE.
-    
+
     int outputRow = (blockIdx.y * TILE_SIZE) + (threadIdx.y * WORK_PER_THREAD);
     int outputCol = (blockIdx.x * TILE_SIZE) + (threadIdx.x * WORK_PER_THREAD);
     for (int i = 0; i < WORK_PER_THREAD; i++) {         // Go across rows to the right
