@@ -90,6 +90,13 @@ class MatrixBenchmarkRunner {
     ///   - `maxDiff`: maximum absolute difference with the CPU result,
     ///   - `speedup`: ratio of CPU time to GPU time.
     func runKernelBenchmark(name kernelName: String) -> BenchmarkResult? {
+        var WORK_PER_THREAD: Int
+        if kernelName == "matmul_tiled_overloaded" {
+            WORK_PER_THREAD = 2 // make sure to have the same value in the kernel
+        } else {
+            WORK_PER_THREAD = 1
+        }
+
         let bufferA = helper.makeBuffer(from: A)
         let bufferB = helper.makeBuffer(from: B)
         let bufferC = helper.makeBuffer(length: M * N * MemoryLayout<Float>.size)
@@ -99,7 +106,7 @@ class MatrixBenchmarkRunner {
         helper.dispatchThreadgroups(kernelName: kernelName,
                                     buffers: [bufferA, bufferB, bufferC],
                                     constants: [constants],
-                                    M: M, K: K, N: N)
+                                    M: M, K: K, N: N, WORK_PER_THREAD: WORK_PER_THREAD)
         let duration = CACurrentMediaTime() - start
 
         var C_gpu = [Float](repeating: 0, count: N * N)

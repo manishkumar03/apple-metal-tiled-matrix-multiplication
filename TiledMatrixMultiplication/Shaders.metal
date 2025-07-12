@@ -213,7 +213,7 @@ kernel void matmul_tiled_overloaded(device const float* A [[ buffer(0) ]],
     //    int outputCol = int(globalIdx.x); // Col of C being computed by this thread (ranges from 0 to N-1)
 
     // Initialize accumulator for this thread's output element which will accumulate partial products from all tiles.
-    float sum[2][2] = {{0.0f,0.0f}, {0.0f, 0.0f}};
+    float sum[WORK_PER_THREAD][WORK_PER_THREAD] = {{0.0f,0.0f}, {0.0f, 0.0f}};
 
     // Calculate total number of *complete* tiles needed to cover the K dimension. If the matrix size is not an exact multiple of
     // TILE_SIZE, some of the tiles will have extra threads. We account for these by checking the bounds before loading the tile.
@@ -222,8 +222,6 @@ kernel void matmul_tiled_overloaded(device const float* A [[ buffer(0) ]],
 
     // Main loop: iterate through all tiles along the K dimension.
     // Each iteration processes one TILE_SIZE×TILE_SIZE block from A and B.
-
-    uint2 blockOrigin = blockIdx * WORK_PER_THREAD;
 
     for (int t = 0; t < numTiles; ++t) {
         int tileCol;
