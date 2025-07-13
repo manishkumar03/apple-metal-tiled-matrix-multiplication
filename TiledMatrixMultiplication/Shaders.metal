@@ -16,6 +16,8 @@ struct Params {
     uint N;
 };
 
+// MARK: - Matrix Multiplication - Naive
+
 /**
  * Naive Matrix Multiplication Kernel Without Any Optimizations
  *
@@ -37,17 +39,18 @@ kernel void matmul_naive(device const float* A [[ buffer(0) ]],
     const int N = params.N;
     int outputRow = int(globalIdx.y); // Row of C being computed by this thread
     int outputCol = int(globalIdx.x); // Col of C being computed by this thread
-
+    
     if (outputRow >= M || outputCol >= N) return;
-
+    
     float sum = 0.0f;
     for (int k = 0; k < K; ++k) {
         sum += A[outputRow * K + k] * B[k * N + outputCol];
     }
-
+    
     C[outputRow * N + outputCol] = sum;
 }
 
+// MARK: - Matrix Multiplication - Tiled
 /**
  * Tiled Matrix Multiplication Kernel with Shared Memory Optimization
  *
@@ -80,32 +83,32 @@ kernel void matmul_tiled(device const float* A [[ buffer(0) ]],
     const int M = params.M;
     const int K = params.K;
     const int N = params.N;
-
+    
     // Declare shared memory tiles that will be co-operatively loaded by all threads in the threadgroup.
     // Each tile holds a TILE_SIZE×TILE_SIZE submatrix. These will be reloaded and reused multiple times as we slide
     // along the K dimension.
     threadgroup float Asub[TILE_SIZE][TILE_SIZE];
     threadgroup float Bsub[TILE_SIZE][TILE_SIZE];
-
+    
     // Determine which element of C this thread is responsible for computing.
     // Each thread computes exactly one element of the output matrix C.
     int outputRow = int(globalIdx.y); // Row of C being computed by this thread (ranges from 0 to M-1)
     int outputCol = int(globalIdx.x); // Col of C being computed by this thread (ranges from 0 to N-1)
-
+    
     // Initialize accumulator for this thread's output element which will accumulate partial products from all tiles.
     float sum = 0.0f;
-
+    
     // Calculate total number of *complete* tiles needed to cover the K dimension. If the matrix size is not an exact multiple of
     // TILE_SIZE, some of the tiles will have extra threads. We account for these by checking the bounds before loading the tile.
     // Example: if K=1000 and TILE_SIZE=16, we need 63 tiles (ceiling division)
     int numTiles = (K + TILE_SIZE - 1) / TILE_SIZE;
-
+    
     // Main loop: iterate through all tiles along the K dimension.
     // Each iteration processes one TILE_SIZE×TILE_SIZE block from A and B.
     for (int t = 0; t < numTiles; ++t) {
         // ===== PHASE 1: COOPERATIVE LOADING =====
         // All threads in the threadgroup work together to load one tile from A and one from B.
-
+        
         // (aCol, bRow) determine which piece of global memory each thread is responsible for loading into the shared tile.
         //
         // Calculate the column index for matrix A this thread should load.
@@ -113,13 +116,13 @@ kernel void matmul_tiled(device const float* A [[ buffer(0) ]],
         // E.g. Thread with threadIdx.x=0 loads from columns 0, 16, 32, ...
         // Thread with threadIdx.x=1 loads from columns 1, 17, 33, ... until all tiles are exhausted.
         int aCol = t * TILE_SIZE + threadIdx.x;
-
+        
         // Calculate the row index for matrix B this thread should load.
         // We need elements from column 'outputCol' of B but the row index advances by TILE_SIZE with each tile iteration.
         // E.g. Thread with threadIdx.y=0 loads from rows 0, 16, 32, ...
         // Thread with threadIdx.y=1 loads from rows 1, 17, 33, ...
         int bRow = t * TILE_SIZE + threadIdx.y;
-
+        
         // The intuition for shared tile loading is that each output element C[outputRow][outputCol] is the result of
         // combining row `outputRow` from matrix A with column `outputCol` from matrix B.
         // - The row comes from A (fixed outputRow, iterate over k)
@@ -132,16 +135,16 @@ kernel void matmul_tiled(device const float* A [[ buffer(0) ]],
         // A is stored in row-major order, so element A[row][col] is at A[row * K + col].
         // For tiles which have extra threads (tiles extend beyond matrix bounds), assign zero to the tile elements.
         Asub[threadIdx.y][threadIdx.x] = (outputRow < M && aCol < K) ? A[outputRow * K + aCol] : 0.0f;
-
+        
         // Load one element from B into shared memory.
         // B is stored in row-major order, so element B[row][col] is at B[row * N + col].
         // For tiles which have extra threads (tiles extend beyond matrix bounds), assign zero to the tile elements.
         Bsub[threadIdx.y][threadIdx.x] = (bRow < K && outputCol < N) ? B[bRow * N + outputCol] : 0.0f;
-
+        
         // SYNCHRONIZATION POINT 1: Wait for all threads to complete loading
         // This barrier ensures that no thread starts the computation before all threads have finished loading the tile.
         threadgroup_barrier(mem_flags::mem_threadgroup);
-
+        
         // ===== PHASE 2: COMPUTATION =====
         // Compute partial dot product from this tile.
         // Each thread computes just one element of the output matrix C[outputRow][outputCol]. It does this by:
@@ -150,14 +153,14 @@ kernel void matmul_tiled(device const float* A [[ buffer(0) ]],
         for (int k = 0; k < TILE_SIZE; ++k) {
             sum += Asub[threadIdx.y][k] * Bsub[k][threadIdx.x];
         }
-
+        
         // SYNCHRONIZATION POINT 2: Wait before moving to next tile
         // This barrier prevents any thread from overwriting shared memory while other threads are still computing
         // with current tile data. Need to wait for all threads to finish their computation before reusing shared
         // memory in the next iteration.
         threadgroup_barrier(mem_flags::mem_threadgroup);
     }
-
+    
     // ===== PHASE 3: WRITE RESULT =====
     // After processing all tiles, write the final result to global memory.
     // Check bounds to make sure this threads maps to a valid element in C. This handles cases where matrix dimensions
@@ -167,84 +170,88 @@ kernel void matmul_tiled(device const float* A [[ buffer(0) ]],
     }
 }
 
+// MARK: - Matrix Multiplication - Tiled with Thread Coarsening
 /**
- * Tiled Matrix Multiplication Kernel with Shared Memory Optimization
+ * Tiled Matrix Multiplication Kernel with Shared Memory Optimization and Thread Coarsening
  *
  * Computes C = A × B where A is M×K, B is K×N, and C is M×N.
  *
  * Algorithm Overview:
  * This kernel implements a tiled matrix multiplication algorithm that dramatically
- * reduces global memory bandwidth requirements by leveraging fast shared memory.
- * Instead of each thread loading all K elements needed for its dot product
- * (resulting in K×M×N total loads), threads cooperatively load small tiles into
- * shared memory that are reused by all threads in the threadgroup.
+ * reduces global memory bandwidth requirements by leveraging fast shared memory but with a slight difference
+ * from the regular tiled kernel. In the regular tiled kernel `matmul_tiled`, each thread was computing one
+ * element for the output matrix C but in this kernel, we trade away a bit of parallelism for increased compute per thread.
+ * Here each thread computes `WORK_PER_THREAD x WORK_PER_THREAD` elements for the output matrix C.
  *
  * Key Design Principles:
- * 1. Work Distribution: Each thread computes exactly one element of C
+ * 1. Work Distribution: Each thread computes `WORK_PER_THREAD x WORK_PER_THREAD` elements of C
  * 2. Tiling Strategy: The K dimension is divided into TILE_SIZE chunks
  * 3. Cooperative Loading: All threads in a threadgroup load one tile from A and B
+ * 4. Thread Coarsening: Each thread loads `WORK_PER_THREAD x WORK_PER_THREAD` elements for the shared tile from A and B
  * 4. Memory Access Pattern: Optimized for coalesced reads
  *
  * Performance Characteristics:
- * - Global memory reads: Reduced by factor of TILE_SIZE (typically 16x reduction)
+ * - Global memory reads: Reduced by factor of TILE_SIZE (typically 16x reduction) and also make increased use of
+ * fast shared memory
+ * - Fewer threads: Better arithmetic intensity, less scheduling overhead and fewer barries across the threadgroup
  */
 kernel void matmul_tiled_wpt(device const float* A [[ buffer(0) ]],
-                                    device const float* B [[ buffer(1) ]],
-                                    device float* C [[ buffer(2) ]],
-                                    constant Params& params [[ buffer(3) ]],
-                                    uint2 threadIdx [[ thread_position_in_threadgroup ]],
-                                    uint2 blockIdx [[ threadgroup_position_in_grid ]],
-                                    uint2 globalIdx [[ thread_position_in_grid ]]) {
+                             device const float* B [[ buffer(1) ]],
+                             device float* C [[ buffer(2) ]],
+                             constant Params& params [[ buffer(3) ]],
+                             uint2 threadIdx [[ thread_position_in_threadgroup ]],
+                             uint2 blockIdx [[ threadgroup_position_in_grid ]],
+                             uint2 globalIdx [[ thread_position_in_grid ]]) {
     // Matrix dimensions: C[M×N] = A[M×K] × B[K×N]
     const int M = params.M;
     const int K = params.K;
     const int N = params.N;
     const int WORK_PER_THREAD = 2;
-
+    
     // Declare shared memory tiles that will be co-operatively loaded by all threads in the threadgroup.
     // Each tile holds a TILE_SIZE×TILE_SIZE submatrix. These will be reloaded and reused multiple times as we slide
     // along the K dimension.
     threadgroup float Asub[TILE_SIZE][TILE_SIZE];
     threadgroup float Bsub[TILE_SIZE][TILE_SIZE];
-
-    // Determine which element of C this thread is responsible for computing.
-    // Each thread computes exactly one element of the output matrix C.
-    //    int outputRow = int(globalIdx.y); // Row of C being computed by this thread (ranges from 0 to M-1)
-    //    int outputCol = int(globalIdx.x); // Col of C being computed by this thread (ranges from 0 to N-1)
-
-    // Initialize accumulator for this thread's output element which will accumulate partial products from all tiles.
+    
+    // Initialize accumulator for this thread's output elements which will accumulate partial products from all tiles.
     float sum[WORK_PER_THREAD][WORK_PER_THREAD] = {{0.0f,0.0f}, {0.0f, 0.0f}};
-
+    
     // Calculate total number of *complete* tiles needed to cover the K dimension. If the matrix size is not an exact multiple of
     // TILE_SIZE, some of the tiles will have extra threads. We account for these by checking the bounds before loading the tile.
     // Example: if K=1000 and TILE_SIZE=16, we need 63 tiles (ceiling division)
     int numTiles = (K + TILE_SIZE - 1) / TILE_SIZE;
-
+    
     // Main loop: iterate through all tiles along the K dimension.
     // Each iteration processes one TILE_SIZE×TILE_SIZE block from A and B.
-
     for (int t = 0; t < numTiles; ++t) {
         int tileCol;
         int tileRow;
-
+        
         for (int i = 0; i < WORK_PER_THREAD; i++) {         // Go across rows to the right
             for (int j = 0; j < WORK_PER_THREAD; j++) {     // Go down columns
+                
+                // Each thread will load `WORK_PER_THREAD x WORK_PER_THREAD` elements from A and B.
+                // Here we calculate the rows and columns in the shared tile which this thread will load.
                 tileRow = threadIdx.y * WORK_PER_THREAD + i;
                 tileCol = threadIdx.x * WORK_PER_THREAD + j;
-
-                // Row in A
+                
+                // Row and column from A which this thread will fetch from global memory
                 int globalRowInA = blockIdx.y * TILE_SIZE + tileRow;
                 int globalColInA = t * TILE_SIZE + tileCol;
-
+                
+                // Row and column from B which this thread will fetch from global memory
                 int globalRowInB = t * TILE_SIZE + tileRow;
                 int globalColInB = blockIdx.x * TILE_SIZE + tileCol;
-
+                
+                // Check bounds to make sure that we are not taking inputs from threads which fall outside the
+                // matrix bounds.
                 if (globalRowInA < M && globalColInA < K) {
                     Asub[tileRow][tileCol] = A[(globalRowInA * K) + globalColInA];
                 } else {
                     Asub[tileRow][tileCol] = 0.0f;
                 }
-
+                
                 if (globalRowInB < K && globalColInB < N) {
                     Bsub[tileRow][tileCol] = B[(globalRowInB * N) + globalColInB];
                 } else {
@@ -252,21 +259,20 @@ kernel void matmul_tiled_wpt(device const float* A [[ buffer(0) ]],
                 }
             }
         }
-
+        
         // SYNCHRONIZATION POINT 1: Wait for all threads to complete loading
         // This barrier ensures that no thread starts the computation before all threads have finished loading the tile.
         threadgroup_barrier(mem_flags::mem_threadgroup);
-
+        
         // ===== PHASE 2: COMPUTATION =====
         // Compute partial dot product from this tile.
-        // Each thread computes just one element of the output matrix C[outputRow][outputCol]. It does this by:
-        //  - walking across one row of the tile of A (fixed threadIdx.y)
-        //  - and one column of the tile of B (fixed threadIdx.x)
-
-//        The triple-nested loop (for i, for j, for k) leads to redundant calculations and poor register utilization.
-//
-//        A much more efficient approach is to restructure the loop to minimize redundant loads from threadgroup memory and maximize the work done with data held in private per-thread registers.
-
+        // Each thread computes `WORK_PER_THREAD x WORK_PER_THREAD` elements of the output matrix C. It does this by:
+        //  - walking across WORK_PER_THREAD rows of the tile of A
+        //  - and WORK_PER_THREAD columns of the tile of B
+        //
+        // The triple-nested loop (for i, for j, for k) could be improved a little by using thread-level memory (registers)
+        // but I find it to be more straightforward and easier to understand. I have shown the alternative below but I did not
+        // find much difference between the two as shared memory is plenty fast as it is.
         for (int i = 0; i < WORK_PER_THREAD; ++i) {
             for (int j = 0; j < WORK_PER_THREAD; ++j) {
                 for (int k = 0; k < TILE_SIZE; ++k) {
@@ -274,52 +280,52 @@ kernel void matmul_tiled_wpt(device const float* A [[ buffer(0) ]],
                 }
             }
         }
-
+        
+        // Here is the alternative to the triple-nested loop used above. Here we load the tile data from shared memory to
+        // registers which cuts down on shared memory trips and improves performance.
         // ===== PHASE 2: (IMPROVED) COMPUTATION =====
-//        for (int k = 0; k < TILE_SIZE; ++k) {
-//            // Load the 2 values this thread needs from a row of Asub into registers
-//            float a_vals[WORK_PER_THREAD];
-//            for (int i = 0; i < WORK_PER_THREAD; ++i) {
-//                a_vals[i] = Asub[threadIdx.y * WORK_PER_THREAD + i][k];
-//            }
-//
-//            // Load the 2 values this thread needs from a column of Bsub into registers
-//            float b_vals[WORK_PER_THREAD];
-//            for (int j = 0; j < WORK_PER_THREAD; ++j) {
-//                b_vals[j] = Bsub[k][threadIdx.x * WORK_PER_THREAD + j];
-//            }
-//
-//            // Perform the 2x2=4 multiply-accumulate operations using registers
-//            for (int i = 0; i < WORK_PER_THREAD; ++i) {
-//                for (int j = 0; j < WORK_PER_THREAD; ++j) {
-//                    sum[i][j] += a_vals[i] * b_vals[j];
-//                }
-//            }
-//        }
-
+        //        for (int k = 0; k < TILE_SIZE; ++k) {
+        //            // Load the 2 values this thread needs from a row of Asub into registers
+        //            float a_vals[WORK_PER_THREAD];
+        //            for (int i = 0; i < WORK_PER_THREAD; ++i) {
+        //                a_vals[i] = Asub[threadIdx.y * WORK_PER_THREAD + i][k];
+        //            }
+        //
+        //            // Load the 2 values this thread needs from a column of Bsub into registers
+        //            float b_vals[WORK_PER_THREAD];
+        //            for (int j = 0; j < WORK_PER_THREAD; ++j) {
+        //                b_vals[j] = Bsub[k][threadIdx.x * WORK_PER_THREAD + j];
+        //            }
+        //
+        //            // Perform the 2x2=4 multiply-accumulate operations using registers
+        //            for (int i = 0; i < WORK_PER_THREAD; ++i) {
+        //                for (int j = 0; j < WORK_PER_THREAD; ++j) {
+        //                    sum[i][j] += a_vals[i] * b_vals[j];
+        //                }
+        //            }
+        //        }
+        
         // SYNCHRONIZATION POINT 2: Wait before moving to next tile
         // This barrier prevents any thread from overwriting shared memory while other threads are still computing
         // with current tile data. Need to wait for all threads to finish their computation before reusing shared
         // memory in the next iteration.
         threadgroup_barrier(mem_flags::mem_threadgroup);
     }
-
+    
     // ===== PHASE 3: WRITE RESULT =====
     // After processing all tiles, write the final result to global memory.
     // Check bounds to make sure this threads maps to a valid element in C. This handles cases where matrix dimensions
     // aren't an exact multiples of TILE_SIZE.
-
     int outputRow = (blockIdx.y * TILE_SIZE) + (threadIdx.y * WORK_PER_THREAD);
     int outputCol = (blockIdx.x * TILE_SIZE) + (threadIdx.x * WORK_PER_THREAD);
     for (int i = 0; i < WORK_PER_THREAD; i++) {         // Go across rows to the right
         for (int j = 0; j < WORK_PER_THREAD; j++) {     // Go down columns
             int outCol = outputCol + j;
             int outRow = outputRow + i;
-
+            
             if (outRow < M && outCol < N) {
                 C[outRow * N + outCol] = sum[i][j];
             }
         }
     }
 }
-
