@@ -72,8 +72,7 @@ Then:
 That’s a **32× reduction in global memory reads**, and the key reason tiled matrix multiplication is **orders of magnitude faster** than the naive version.
 
 ## Screenshot
-![Tiled Matrix Multiplication Results](https://github.com/user-attachments/assets/4f304ccf-5c6a-47a6-9846-0c55e6e176e0)
-
+![matmul_results](https://github.com/user-attachments/assets/0d319cac-d769-4105-8b96-30a6775d77aa)
 
 ## Core Functionality
 
