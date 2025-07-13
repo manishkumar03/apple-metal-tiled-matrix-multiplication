@@ -77,8 +77,7 @@ Tile size = 32
 Then, instead of `1024 × 1024 = 1,048,576` reads from B (one for each row of A), we only need `(1024 / 32) × 1024 = 32,768` reads from B using tiles. That’s a **32× reduction in global memory reads**, and the key reason tiled matrix multiplication is **orders of magnitude faster** than the naive version.
 
 ## Screenshot
-![matmul_results](https://github.com/user-attachments/assets/0d319cac-d769-4105-8b96-30a6775d77aa)
-
+![matmul_results](https://github.com/user-attachments/assets/bfdfa225-0c6b-43d9-89bd-0211ae595870)
 
 ## Topics Covered
 
