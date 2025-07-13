@@ -15,8 +15,7 @@ To understand the need for tiled matrix multiplication, let’s first look at th
 
 Suppose we’re multiplying two matrices, **A** and **B**, to produce the output matrix **C**. To compute the first row of matrix C, we multiply the first row of A with each column of B. This means we need to load the entire matrix B from global memory into local (register/shared) memory for just this one row of A.
 
-Next, to compute the second row of C, we take the second row of A and we multiply it with all columns of B, which means we reload matrix B from global memory again. And this goes on for all the rows of A. So if matrix A has 1024 rows, we’ll be loading matrix B 1024 times from global memory. And matrix A also gets loaded from global memory same number of times. This is obviously quite wasteful and hopefully we can do something about it. 
-
+Next, to compute the second row of C, we take the second row of A and we multiply it with all columns of B, which means we reload matrix B from global memory again. And this goes on for all the rows of A. So if matrix A has 1024 rows, we’ll be loading matrix B 1024 times from global memory. Similarly, multiple threads load each row of matrix A repeatedly from global memory. This is obviously quite wasteful and we need to find a better algorithm to cut down on this excessive global memory traffic.
 
 #### But you might ask: Isn’t Global Memory Fast? Why do we care if matrix B is being fetched multiple times?
 
@@ -57,6 +56,15 @@ There are two **tricks** that make this algorithm work:
 That’s why **tiling** is the best compromise. We load just a small chunk (tile) of A and B at a time into shared memory, compute the partial output, and move on to the next tile.
 
 
+## Algorithms Implemented for Matrix Multiplication
+The project implements four matrix multiplication techniques and compares their performance:
+
+1. **CPU** - Baseline reference implementation using triple-nested loop. It's used as a performance baseline for comparing against the GPU-based implementations. It's also used for checking the accuracy of GPU-based output.
+2. **matmul_naive** - Naive Metal kernel where each thread computes one element for the output matrix C. There are no optimizations and hence this implementation suffers from high global memory traffic and low compute intensity.
+3. **matmul_tiled** - Metal kernel using shared memory tiles where matrices A and B are loaded into shared memory one tile at a time. This improves shared memory reuse and cuts down dramatically on the global memory traffic. Here each thread still computes one element for the output matrix C.
+4. **matmul_tiled_wpt** - Metal kernel using shared memory tiles but with **Thread Coarsening**. It's built on `matmul_tiled` by having each thread load and compute multiple elements. It leads to better arithmetic intensity and slightly less global memory traffic.
+
+
 ## Performance Improvement
 
 Let’s say you’re multiplying:
@@ -65,30 +73,11 @@ A = 1024×1024
 B = 1024×1024
 Tile size = 32
 
-Then:
-
-- Instead of `1024 × 1024 = 1,048,576` reads from B (one for each row of A),  
-- We only need `(1024 / 32) × 1024 = 32,768` reads from B using tiles.
-
-That’s a **32× reduction in global memory reads**, and the key reason tiled matrix multiplication is **orders of magnitude faster** than the naive version.
-
-## Algorithms Implemented for Matrix Multiplication
-1. **CPU** - Baseline reference implementation using triple-nested loop. It's used as a performance baseline for comparing against the GPU-based implementations. It's also used for checking the accuracy of GPU-based output.
-2. **matmul_naive** - Naive Metal kernel where each thread computes one element for the output matrix C. There are no optimizations and hence this implementation suffers from high global memory traffic and low compute intensity.
-3. **matmul_tiled** - Metal kernel using shared memory tiles where matrices A and B are loaded into shared memory one tile at a time. This improves shared memory reuse and cuts down dramatically on the global memory traffic. Here each thread still computes one element for the output matrix C.
-4. **matmul_tiled_wpt** - Metal kernel using shared memory tiles but with **Thread Coarsening**. It's built on `matmul_tiled` by having each thread load and compute multiple elements. It leads to better arithmetic intensity and slightly less global memory traffic.
-
+Then, instead of `1024 × 1024 = 1,048,576` reads from B (one for each row of A), we only need `(1024 / 32) × 1024 = 32,768` reads from B using tiles. That’s a **32× reduction in global memory reads**, and the key reason tiled matrix multiplication is **orders of magnitude faster** than the naive version.
 
 ## Screenshot
 ![matmul_results](https://github.com/user-attachments/assets/0d319cac-d769-4105-8b96-30a6775d77aa)
 
-## Core Functionality
-
-The project implements three matrix multiplication techniques and compares their performance:
-
-- Naive implementation using nested for-loops on the CPU
-- Naive implementation using a Metal kernel (`matmul_naive`)
-- Optimized implementation using shared-memory tiles using a Metal kernel (`matmul_tiled`)
 
 ## Topics Covered
 
