@@ -6,6 +6,7 @@ This repository is an educational example that demonstrates how to use Apple's M
 
 The code includes **extensive inline comments** explaining the functioning of each step and the design choices made.
 
+
 # Why Naive Matrix Multiplication Is Inefficient And How Tiling Helps
 
 Matrix multiplication might be the most-studied algorithm in the AI literature. It literally is the foundation of every major process in modern machine learning and especially deep learning. So anytime we can speed it up or make it more efficient, even slightly, we can save a lot in terms of computing power, energy and cost.
@@ -70,6 +71,13 @@ Then:
 - We only need `(1024 / 32) × 1024 = 32,768` reads from B using tiles.
 
 That’s a **32× reduction in global memory reads**, and the key reason tiled matrix multiplication is **orders of magnitude faster** than the naive version.
+
+## Algorithms Implemented for Matrix Multiplication
+1. **CPU** - Baseline reference implementation using triple-nested loop. It's used as a performance baseline for comparing against the GPU-based implementations. It's also used for checking the accuracy of GPU-based output.
+2. **matmul_naive** - Naive Metal kernel where each thread computes one element for the output matrix C. There are no optimizations and hence this implementation suffers from high global memory traffic and low compute intensity.
+3. **matmul_tiled** - Metal kernel using shared memory tiles where matrices A and B are loaded into shared memory one tile at a time. This improves shared memory reuse and cuts down dramatically on the global memory traffic. Here each thread still computes one element for the output matrix C.
+4. **matmul_tiled_wpt** - Metal kernel using shared memory tiles but with **Thread Coarsening**. It's built on `matmul_tiled` by having each thread load and compute multiple elements. It leads to better arithmetic intensity and slightly less global memory traffic.
+
 
 ## Screenshot
 ![matmul_results](https://github.com/user-attachments/assets/0d319cac-d769-4105-8b96-30a6775d77aa)
