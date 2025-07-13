@@ -59,10 +59,11 @@ That’s why **tiling** is the best compromise. We load just a small chunk (tile
 ## Algorithms Implemented for Matrix Multiplication
 The project implements four matrix multiplication techniques and compares their performance:
 
-1. **CPU** - Baseline reference implementation using triple-nested loop. It's used as a performance baseline for comparing against the GPU-based implementations. It's also used for checking the accuracy of GPU-based output.
+1. **CPU** - Baseline implementation using triple-nested loop. It's used as a performance baseline for comparing against the GPU-based implementations. It's also used for checking the accuracy of GPU-based output.
 2. **matmul_naive** - Naive Metal kernel where each thread computes one element for the output matrix C. There are no optimizations and hence this implementation suffers from high global memory traffic and low compute intensity.
 3. **matmul_tiled** - Metal kernel using shared memory tiles where matrices A and B are loaded into shared memory one tile at a time. This improves shared memory reuse and cuts down dramatically on the global memory traffic. Here each thread still computes one element for the output matrix C.
 4. **matmul_tiled_wpt** - Metal kernel using shared memory tiles but with **Thread Coarsening**. It's built on `matmul_tiled` by having each thread load and compute multiple elements. It leads to better arithmetic intensity and slightly less global memory traffic.
+5. **MPS** - This is the reference implementation based on **Metal Performance Shaders**. This is the best performance that can be obtained on Apple GPUs as it has been highly optimized by Apple. This is the target that I am trying to reach :-) 
 
 
 ## Performance Improvement
