@@ -7,6 +7,7 @@
 
 import UIKit
 import Metal
+import MetalPerformanceShaders
 
 /// Coordinates the benchmarking of matrix multiplication on CPU and GPU.
 ///
@@ -81,6 +82,65 @@ class MatrixBenchmarkRunner {
         cpuTime = CACurrentMediaTime() - start
     }
 
+    /// Performs matrix multiplication C = A × B using Apple’s Metal Performance Shaders (MPS).
+    ///
+    /// This function computes the product of two matrices A (of size M×K) and B (of size K×N)
+    /// and returns the resulting matrix C (of size M×N). It uses MPSMatrixMultiplication,
+    /// which is highly optimized for Apple GPUs.
+    ///
+    /// The peformance of MPS-based matrix multiplication can be used as an ideal reference as this is *best*
+    /// that can be achieved on on Apple Metal.
+    func multiplyUsingMPS() -> BenchmarkResult {
+        guard let device = MTLCreateSystemDefaultDevice(),
+              let commandQueue = device.makeCommandQueue() else {
+            print("Metal not supported.")
+            fatalError("Metal not supported.")
+        }
+
+        let aDesc = MPSMatrixDescriptor(rows: M, columns: K, rowBytes: K * MemoryLayout<Float>.stride, dataType: .float32)
+        let bDesc = MPSMatrixDescriptor(rows: K, columns: N, rowBytes: N * MemoryLayout<Float>.stride, dataType: .float32)
+        let cDesc = MPSMatrixDescriptor(rows: M, columns: N, rowBytes: N * MemoryLayout<Float>.stride, dataType: .float32)
+
+        let aBuffer = device.makeBuffer(bytes: A, length: M * K * MemoryLayout<Float>.stride, options: [])!
+        let bBuffer = device.makeBuffer(bytes: B, length: K * N * MemoryLayout<Float>.stride, options: [])!
+        let cBuffer = device.makeBuffer(length: M * N * MemoryLayout<Float>.stride, options: [])!
+
+        let matrixA = MPSMatrix(buffer: aBuffer, descriptor: aDesc)
+        let matrixB = MPSMatrix(buffer: bBuffer, descriptor: bDesc)
+        let matrixC = MPSMatrix(buffer: cBuffer, descriptor: cDesc)
+
+        let start = CACurrentMediaTime()
+        let gemm = MPSMatrixMultiplication(device: device,
+                                           transposeLeft: false,
+                                           transposeRight: false,
+                                           resultRows: M,
+                                           resultColumns: N,
+                                           interiorColumns: K,
+                                           alpha: 1.0,
+                                           beta: 0.0)
+
+        guard let commandBuffer = commandQueue.makeCommandBuffer() else {
+            fatalError( "Could not create command buffer.")
+        }
+
+        gemm.encode(commandBuffer: commandBuffer,
+                    leftMatrix: matrixA,
+                    rightMatrix: matrixB,
+                    resultMatrix: matrixC)
+
+        commandBuffer.commit()
+        commandBuffer.waitUntilCompleted()
+        let duration = CACurrentMediaTime() - start
+
+        var C_gpu = [Float](repeating: 0, count: N * N)
+        memcpy(&C_gpu, cBuffer.contents(), C_gpu.count * MemoryLayout<Float>.size)
+
+        let maxDiff = zip(C_cpu, C_gpu).map { abs($0 - $1) }.max() ?? 0
+        let speedup = cpuTime / duration
+
+        return BenchmarkResult(name: "MPS", duration: duration * 1000.0, maxDiff: maxDiff, speedup: speedup)
+    }
+
     /// Runs a specified Metal compute kernel for matrix multiplication and benchmarks its performance.
     ///
     /// - Parameter kernelName: The name of the Metal kernel function to run.
@@ -132,8 +192,8 @@ class MatrixBenchmarkRunner {
         log += String(repeating: "-", count: 42) + "\n"
 
         let cpuResult = BenchmarkResult(name: "CPU", duration: self.cpuTimeMS, maxDiff: 0, speedup: 1)
-        let line = self.formatResultLine(for: cpuResult)
-        log += line + "\n"
+        let cpuLine = self.formatResultLine(for: cpuResult)
+        log += cpuLine + "\n"
 
         let kernelNames = ["matmul_naive",  "matmul_tiled", "matmul_tiled_wpt"]
         for kernelName in kernelNames {
@@ -150,6 +210,10 @@ class MatrixBenchmarkRunner {
                 log += "\(kernelName) failed to run\n"
             }
         }
+
+        let mpsResult = self.multiplyUsingMPS()
+        let mpsLine = self.formatResultLine(for: mpsResult)
+        log += mpsLine + "\n"
 
         return log
     }
